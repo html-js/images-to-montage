@@ -1,0 +1,31 @@
+cff-version: 1.2.0
+title: Images to Montage
+message: "If you use this software, please cite it using the metadata from this file."
+type: software
+authors:
+  - alias: Aesthetic Vulpes
+    website: https://github.com/didvc/
+repository-code: https://github.com/html-js/images-to-montage
+url: https://html-js.github.io/images-to-montage/
+license: AGPL-3.0
+version: 0.1.0
+date-released: 2026-11-07
+abstract: >
+  A single-page, zero-dependency browser tool that combines many images into
+  one montage, collage or contact sheet. Pictures arrive by drag and drop,
+  paste, file or folder pickers, or typed paths and URLs, and are laid out as
+  a grid, justified rows, masonry columns, a single row or a single column,
+  with gaps, padding, rounded corners, borders and optional captions. The
+  result is exported as PNG, JPEG or WebP, or copied to the clipboard, and
+  every step runs locally in the browser.
+keywords:
+  - image-montage
+  - photo-collage
+  - collage-maker
+  - contact-sheet
+  - combine-images
+  - merge-images
+  - image-grid
+  - masonry-layout
+  - justified-layout
+  - screenshot-stitching

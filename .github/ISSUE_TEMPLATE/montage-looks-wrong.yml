@@ -1,0 +1,43 @@
+name: Montage looks wrong
+description: A layout, caption, export or loading result was not what you expected.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: >
+        Please do not attach private pictures. If the problem needs images to
+        show, use the sample pictures from the README link or plain test images
+        you are happy to share, and check that file names in captions reveal
+        nothing personal.
+  - type: textarea
+    id: settings
+    attributes:
+      label: Settings in use
+      description: Layout mode, whether "Size from images" was on, columns, gap, captions, scale and format.
+    validations:
+      required: true
+  - type: textarea
+    id: input
+    attributes:
+      label: How the pictures were added
+      description: Dropped, pasted, chosen, a folder, or typed paths and URLs. Include the number of pictures and their rough sizes.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: What happened instead
+      description: Any message shown at the bottom of the page, chips in the header, or red entries in the image list.
+    validations:
+      required: true
+  - type: input
+    id: browser
+    attributes:
+      label: Browser version
+      description: The version number shown in your browser's about page, and whether it runs on a desktop or a phone.

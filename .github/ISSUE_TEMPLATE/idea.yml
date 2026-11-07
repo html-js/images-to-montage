@@ -1,0 +1,11 @@
+name: Idea or improvement
+description: Suggest a layout option, an export setting, clearer wording or a documentation fix.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: Your idea
+      description: What you would like to make, and what stops you today.
+    validations:
+      required: true

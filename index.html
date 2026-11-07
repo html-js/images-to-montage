@@ -1,0 +1,1191 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Images to Montage: combine pictures into one image</title>
+<meta name="description" content="Combine many images into one montage, collage or contact sheet in your browser. Grid, justified rows, masonry, single row or column, with gaps, borders, rounded corners and captions. Export PNG, JPEG or WebP. Files stay on your device.">
+<style>
+/* ---------- theme ---------- */
+:root{
+  --bg:#0f1115; --panel:#161a21; --panel2:#1c212a; --fg:#e6e9ef; --muted:#8b94a7;
+  --line:#2a313d; --accent:#4cc2ff; --accent-dim:#1d4f6b; --warn:#ffb454; --bad:#ff6b6b;
+  --chk1:#20252e; --chk2:#171b22;
+  --mono:ui-monospace,monospace;
+  --ui:system-ui,sans-serif;
+}
+html[data-theme="light"]{
+  --bg:#f4f6fa; --panel:#ffffff; --panel2:#eef1f6; --fg:#12151b; --muted:#5d6779;
+  --line:#d7dde7; --accent:#0d7fc4; --accent-dim:#bfe2f7; --warn:#a86400; --bad:#c62c2c;
+  --chk1:#e3e7ee; --chk2:#f7f8fb;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0; background:var(--bg); color:var(--fg); font:13px/1.45 var(--ui);
+  display:flex; flex-direction:column; overflow:hidden;
+}
+button,select,input,textarea{font:inherit; color:inherit}
+button{
+  background:var(--panel2); border:1px solid var(--line); color:var(--fg);
+  border-radius:6px; padding:4px 9px; cursor:pointer;
+}
+button:hover{border-color:var(--accent); color:var(--accent)}
+button:active{transform:translateY(1px)}
+button.primary{background:var(--accent-dim); border-color:var(--accent)}
+button.danger:hover{border-color:var(--bad); color:var(--bad)}
+button:disabled{opacity:.45; pointer-events:none}
+input[type=number],input[type=text],select,textarea{
+  background:var(--bg); border:1px solid var(--line); border-radius:6px; padding:3px 6px; width:100%;
+}
+textarea{font-family:var(--mono); font-size:11px; resize:vertical}
+input[type=range]{width:100%; accent-color:var(--accent)}
+input[type=color]{background:none; border:1px solid var(--line); border-radius:6px; height:26px; width:100%; padding:1px; cursor:pointer}
+input[type=checkbox]{accent-color:var(--accent); width:14px; height:14px; cursor:pointer}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-thumb{background:var(--line); border-radius:6px}
+::-webkit-scrollbar-track{background:transparent}
+
+/* ---------- header ---------- */
+header{
+  display:flex; align-items:center; gap:10px; padding:6px 12px;
+  background:var(--panel); border-bottom:1px solid var(--line); flex:0 0 auto;
+}
+header h1{font-size:13px; margin:0; letter-spacing:.4px; font-weight:600; flex:0 0 auto}
+header h1 small{color:var(--muted); font-weight:400; margin-left:6px}
+.chips{display:flex; align-items:center; gap:6px; flex:1 1 auto; min-width:0;
+  flex-wrap:wrap; justify-content:flex-end}
+.ctls{display:flex; align-items:center; gap:6px; flex:0 0 auto}
+.chip{
+  font-family:var(--mono); font-size:10.5px; background:var(--panel2); border:1px solid var(--line);
+  border-radius:5px; padding:2px 6px; white-space:nowrap;
+}
+.chip b{color:var(--accent); font-weight:600}
+.chip i{color:var(--muted); font-style:normal}
+.chip.warn{border-color:var(--warn)} .chip.warn b{color:var(--warn)}
+.chip[hidden]{display:none}
+@media (max-width:1000px){ header h1 small{display:none} }
+
+main{flex:1; display:flex; min-height:0}
+aside{
+  width:252px; flex:0 0 auto; background:var(--panel); border-right:1px solid var(--line);
+  overflow-y:auto; overflow-x:hidden; padding:8px 10px 30px;
+}
+aside.right{border-right:none; border-left:1px solid var(--line); width:300px; display:flex; flex-direction:column; padding:0; overflow:hidden}
+
+.grp-title{font-size:10px; text-transform:uppercase; letter-spacing:.9px; color:var(--muted); margin:12px 0 6px}
+.grp-title:first-child{margin-top:2px}
+.row{display:flex; align-items:center; gap:8px; margin:5px 0; min-height:24px}
+.row[hidden]{display:none}
+.row label{flex:1 1 auto; min-width:0; color:var(--muted); font-size:12px; overflow-wrap:anywhere}
+.row .ctl{flex:0 0 104px; min-width:0}
+.row .ctl.pair{display:flex; gap:4px}
+.hint{color:var(--muted); font-size:11px; margin:6px 0 0; overflow-wrap:anywhere}
+.hint code{font-family:var(--mono)}
+kbd{
+  font-family:var(--mono); font-size:10px; background:var(--panel2); border:1px solid var(--line);
+  border-bottom-width:2px; border-radius:4px; padding:0 4px;
+}
+
+/* ---------- stage ---------- */
+.stage-wrap{
+  flex:1; min-width:0; display:flex; flex-direction:column; position:relative;
+}
+#viewport{
+  flex:1; min-height:0; overflow:auto; display:flex; padding:14px;
+}
+#holder{
+  position:relative; margin:auto; flex:0 0 auto; line-height:0;
+  background:repeating-conic-gradient(var(--chk1) 0 25%, var(--chk2) 0 50%) 0 0/16px 16px;
+  outline:1px solid var(--line);
+}
+#holder[hidden]{display:none}
+#cv{display:block; cursor:grab; touch-action:none}
+#cv.dragging{cursor:grabbing}
+#selbox,#dropbox{position:absolute; pointer-events:none; display:none}
+#selbox{outline:2px solid var(--accent); outline-offset:1px; box-shadow:0 0 0 9999px rgba(0,0,0,.18)}
+#dropbox{outline:2px dashed var(--warn); outline-offset:1px}
+#stage-meta{
+  font-family:var(--mono); font-size:11px; color:var(--muted); padding:4px 10px 6px;
+  display:flex; gap:12px; flex-wrap:wrap; justify-content:center; flex:0 0 auto;
+}
+#empty{
+  margin:auto; text-align:center; color:var(--muted); border:2px dashed var(--line);
+  border-radius:14px; padding:46px 54px; cursor:pointer; max-width:520px;
+}
+#empty:hover{border-color:var(--accent); color:var(--fg)}
+#empty b{display:block; font-size:16px; color:var(--fg); margin-bottom:6px}
+#empty[hidden]{display:none}
+
+/* whole-window drop overlay */
+#drop{
+  position:fixed; inset:0; z-index:70; display:none; align-items:center; justify-content:center;
+  background:color-mix(in srgb, var(--bg) 70%, transparent);
+  border:3px dashed var(--accent); font-size:18px; color:var(--accent); pointer-events:none;
+}
+body.dragover #drop{display:flex}
+
+/* ---------- image list ---------- */
+.list-head{
+  display:flex; align-items:center; gap:5px; padding:7px 9px; border-bottom:1px solid var(--line);
+  background:var(--panel); flex-wrap:wrap;
+}
+.list-head .t{font-size:11px; text-transform:uppercase; letter-spacing:.9px; color:var(--muted); margin-right:auto}
+.list-head button{padding:2px 7px; font-size:12px}
+.add{padding:8px 9px; border-bottom:1px solid var(--line); display:flex; flex-direction:column; gap:6px}
+.add .btns{display:flex; gap:6px}
+.add .btns button{flex:1}
+#list{flex:1; overflow:auto; background:var(--panel); padding:4px 0}
+.it{
+  display:flex; align-items:center; gap:8px; padding:4px 8px; cursor:pointer;
+  border-bottom:1px solid var(--line); user-select:none;
+}
+.it:hover{background:var(--panel2)}
+.it.sel{background:var(--accent-dim)}
+.it.over-top{box-shadow:inset 0 2px 0 var(--warn)}
+.it.over-bot{box-shadow:inset 0 -2px 0 var(--warn)}
+.it .n{font-family:var(--mono); font-size:10px; color:var(--muted); width:20px; text-align:right; flex:0 0 auto}
+.it .th{
+  width:44px; height:44px; flex:0 0 auto; display:flex; align-items:center; justify-content:center;
+  background:repeating-conic-gradient(var(--chk1) 0 25%, var(--chk2) 0 50%) 0 0/8px 8px; border-radius:4px; overflow:hidden;
+}
+.it .th img{max-width:44px; max-height:44px; display:block}
+.it .meta{flex:1; min-width:0; line-height:1.3}
+.it .nm{white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-size:12px}
+.it .dm{font-family:var(--mono); font-size:10px; color:var(--muted)}
+.it .dm .w{color:var(--warn)} .it .dm .e{color:var(--bad)}
+.it .acts{display:flex; gap:2px; flex:0 0 auto}
+.it .acts button{padding:0 5px; font-size:12px; border-color:transparent; background:none}
+.it .acts button:hover{border-color:var(--line)}
+.it.bad .nm{color:var(--bad)}
+.list-empty{padding:18px; text-align:center; color:var(--muted); font-size:12px}
+
+#toast{
+  position:fixed; left:50%; bottom:22px; transform:translateX(-50%) translateY(14px);
+  background:var(--panel2); border:1px solid var(--accent); color:var(--fg);
+  padding:6px 12px; border-radius:20px; font-size:12px; opacity:0; pointer-events:none;
+  transition:opacity .16s, transform .16s; z-index:80; max-width:80vw; text-align:center;
+}
+#toast.show{opacity:1; transform:translateX(-50%) translateY(0)}
+#toast.bad{border-color:var(--bad)}
+
+@media (max-width:760px){
+  main{flex-direction:column; overflow:auto}
+  aside,aside.right{width:auto; border:none; border-bottom:1px solid var(--line); max-height:none; overflow:visible}
+  .stage-wrap{min-height:60vh}
+  body{overflow:auto}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>images-to-montage <small>drop / paste / path images → one montaged image</small></h1>
+  <div class="chips">
+    <div class="chip" id="chip-n"><i>images</i> <b>0</b></div>
+    <div class="chip" id="chip-size"><i>output</i> <b>—</b></div>
+    <div class="chip warn" id="chip-clamp" hidden title="The canvas was larger than the browser allows, so the scale was reduced"><i>clamped</i> <b>—</b></div>
+    <div class="chip warn" id="chip-taint" hidden title="Some images came from a path/URL the browser won't let a page read back; the preview works but export is blocked. Drop the files instead."><i>export</i> <b>blocked</b></div>
+  </div>
+  <div class="ctls">
+    <button id="btn-zoom" title="Toggle fit / 1:1 preview — z">fit</button>
+    <button id="btn-copy" title="Copy PNG to clipboard — ctrl+shift+c">copy</button>
+    <button id="btn-dl" class="primary" title="Download — ctrl+s">download</button>
+    <button id="btn-theme" title="Toggle theme — t">◐</button>
+  </div>
+</header>
+
+<main>
+  <!-- ---------------- config ---------------- -->
+  <aside class="left" id="cfgpanel">
+    <div class="grp-title">Layout</div>
+    <div class="row"><label for="c-layout">Mode</label>
+      <span class="ctl"><select id="c-layout" data-cfg="layout">
+        <option value="grid">grid</option>
+        <option value="justified">justified rows</option>
+        <option value="masonry">masonry</option>
+        <option value="row">single row</option>
+        <option value="column">single column</option>
+      </select></span></div>
+    <div class="row"><label for="c-native" title="Cell / row sizes follow the source images, so nothing is shrunk. Turn off to set sizes manually.">Size from images</label>
+      <span class="ctl"><input type="checkbox" id="c-native" data-cfg="native"></span></div>
+    <div class="row" data-for="grid masonry justified"><label for="c-cols">Columns (0=auto)</label>
+      <span class="ctl"><input type="number" id="c-cols" data-cfg="cols" min="0" max="200" step="1"></span></div>
+    <div class="row" data-for="grid masonry column"><label for="c-cellW">Cell width</label>
+      <span class="ctl"><input type="number" id="c-cellW" data-size data-cfg="cellW" min="8" max="8000" step="1"></span></div>
+    <div class="row" data-for="grid"><label for="c-cellH">Cell height (0=auto)</label>
+      <span class="ctl"><input type="number" id="c-cellH" data-size data-cfg="cellH" min="0" max="8000" step="1"></span></div>
+    <div class="row" data-for="grid"><label for="c-fit">Fit in cell</label>
+      <span class="ctl"><select id="c-fit" data-cfg="fit">
+        <option value="contain">contain</option>
+        <option value="cover">cover (crop)</option>
+        <option value="stretch">stretch</option>
+      </select></span></div>
+    <div class="row" data-for="justified row"><label for="c-rowH">Row height</label>
+      <span class="ctl"><input type="number" id="c-rowH" data-size data-cfg="rowH" min="8" max="8000" step="1"></span></div>
+    <div class="row" data-for="justified"><label for="c-width">Total width</label>
+      <span class="ctl"><input type="number" id="c-width" data-size data-cfg="width" min="50" max="30000" step="1"></span></div>
+    <div class="row" data-for="grid justified"><label for="c-lastRow">Last row</label>
+      <span class="ctl"><select id="c-lastRow" data-cfg="lastRow">
+        <option value="left">left</option>
+        <option value="center">center</option>
+        <option value="stretch" data-for="justified">stretch</option>
+      </select></span></div>
+    <div class="row" data-for="row column"><label for="c-align">Cross-axis align</label>
+      <span class="ctl"><select id="c-align" data-cfg="align">
+        <option value="start">start</option>
+        <option value="center">center</option>
+        <option value="end">end</option>
+      </select></span></div>
+    <div class="row" data-for="row column"><label for="c-uniform">Keep natural size</label>
+      <span class="ctl"><input type="checkbox" id="c-uniform" data-cfg="natural" title="Don't normalise height (row) / width (column)"></span></div>
+
+    <div class="grp-title">Spacing &amp; look</div>
+    <div class="row"><label for="c-gap">Gap <span id="v-gap" class="chip"></span></label>
+      <span class="ctl"><input type="range" id="c-gap" data-cfg="gap" min="0" max="120" step="1"></span></div>
+    <div class="row"><label for="c-pad">Outer padding <span id="v-pad" class="chip"></span></label>
+      <span class="ctl"><input type="range" id="c-pad" data-cfg="pad" min="0" max="200" step="1"></span></div>
+    <div class="row"><label for="c-radius">Corner radius <span id="v-radius" class="chip"></span></label>
+      <span class="ctl"><input type="range" id="c-radius" data-cfg="radius" min="0" max="120" step="1"></span></div>
+    <div class="row"><label for="c-bg">Background</label>
+      <span class="ctl"><input type="color" id="c-bg" data-cfg="bg"></span></div>
+    <div class="row"><label for="c-transparent">Transparent bg</label>
+      <span class="ctl"><input type="checkbox" id="c-transparent" data-cfg="transparent"></span></div>
+    <div class="row" data-for="grid"><label for="c-cellBg">Fill empty cell area</label>
+      <span class="ctl pair"><input type="checkbox" id="c-cellFill" data-cfg="cellFill"><input type="color" id="c-cellBg" data-cfg="cellBg"></span></div>
+    <div class="row"><label for="c-bw">Border <span id="v-bw" class="chip"></span></label>
+      <span class="ctl pair"><input type="range" id="c-bw" data-cfg="bw" min="0" max="40" step="1" style="flex:1"><input type="color" id="c-bc" data-cfg="bc" style="width:30px"></span></div>
+
+    <div class="grp-title">Captions</div>
+    <div class="row"><label for="c-caption">Text</label>
+      <span class="ctl"><select id="c-caption" data-cfg="caption">
+        <option value="none">none</option>
+        <option value="index">index</option>
+        <option value="name">file name</option>
+        <option value="both">index + name</option>
+      </select></span></div>
+    <div class="row" data-cap><label for="c-capSize">Font size</label>
+      <span class="ctl"><input type="number" id="c-capSize" data-cfg="capSize" min="6" max="200" step="1"></span></div>
+    <div class="row" data-cap><label for="c-capPos">Position</label>
+      <span class="ctl"><select id="c-capPos" data-cfg="capPos">
+        <option value="bottom">bottom band</option>
+        <option value="top">top band</option>
+        <option value="badge">corner badge</option>
+      </select></span></div>
+    <div class="row" data-cap><label for="c-stripExt">Hide extension</label>
+      <span class="ctl"><input type="checkbox" id="c-stripExt" data-cfg="stripExt"></span></div>
+
+    <div class="grp-title">Output</div>
+    <div class="row"><label for="c-scale">Scale <span id="v-scale" class="chip"></span></label>
+      <span class="ctl"><input type="range" id="c-scale" data-cfg="scale" min="0.1" max="4" step="0.05"></span></div>
+    <div class="row"><label for="c-format">Format</label>
+      <span class="ctl"><select id="c-format" data-cfg="format">
+        <option value="image/png">PNG</option>
+        <option value="image/jpeg">JPEG</option>
+        <option value="image/webp">WebP</option>
+      </select></span></div>
+    <div class="row" data-lossy><label for="c-quality">Quality <span id="v-quality" class="chip"></span></label>
+      <span class="ctl"><input type="range" id="c-quality" data-cfg="quality" min="0.3" max="1" step="0.01"></span></div>
+    <div class="row"><label for="c-fname">File name</label>
+      <span class="ctl"><input type="text" id="c-fname" data-cfg="fname" spellcheck="false"></span></div>
+
+    <div class="grp-title">Session</div>
+    <div class="row"><label for="c-persist">Persist settings</label>
+      <span class="ctl"><input type="checkbox" id="c-persist" data-cfg="persist"></span></div>
+    <div class="row"><label>&nbsp;</label>
+      <span class="ctl"><button id="btn-reset" class="danger" style="width:100%">reset config</button></span></div>
+
+    <p class="hint">
+      <kbd>drop</kbd> files / folders / URLs anywhere · <kbd>ctrl+v</kbd> paste images or paths ·
+      <kbd>o</kbd> open files · drag tiles on the preview or rows in the list to reorder ·
+      <kbd>del</kbd> remove · <kbd>r</kbd> rotate · <kbd>alt+↑↓</kbd> move ·
+      <kbd>z</kbd> zoom · <kbd>ctrl+s</kbd> save
+    </p>
+    <p class="hint">
+      Paths: absolute (<code>/home/…</code>, <code>C:\…</code>), <code>file://</code>, relative to this page, or
+      <code>http(s)://</code>. Browsers only let a page <i>export</i> images it may read back — local
+      paths and non-CORS URLs preview fine but block download; drop the files instead.
+    </p>
+  </aside>
+
+  <!-- ---------------- stage ---------------- -->
+  <div class="stage-wrap">
+    <div id="viewport">
+      <div id="empty">
+        <b>Drop images here</b>
+        or click to choose · paste with <kbd>ctrl+v</kbd> · add paths on the right
+      </div>
+      <div id="holder" hidden>
+        <canvas id="cv"></canvas>
+        <div id="selbox"></div>
+        <div id="dropbox"></div>
+      </div>
+    </div>
+    <div id="stage-meta">
+      <span id="m-size">—</span>
+      <span id="m-view">—</span>
+      <span id="m-sel">—</span>
+    </div>
+  </div>
+
+  <!-- ---------------- list ---------------- -->
+  <aside class="right">
+    <div class="list-head">
+      <span class="t">images</span>
+      <button id="btn-sort" title="Sort by name (natural)">a→z</button>
+      <button id="btn-rev" title="Reverse order">⇅</button>
+      <button id="btn-shuf" title="Shuffle">⤮</button>
+      <button id="btn-clear" class="danger" title="Remove all">clear</button>
+    </div>
+    <div class="add">
+      <div class="btns">
+        <button id="btn-open" title="Choose files — o">+ files</button>
+        <button id="btn-folder" title="Choose a folder">+ folder</button>
+      </div>
+      <textarea id="paths" rows="3" spellcheck="false" placeholder="paths or URLs, one per line&#10;/home/me/pics/a.png&#10;https://example.com/b.jpg"></textarea>
+      <button id="btn-paths" title="Add the paths above — ctrl+enter">add paths</button>
+      <input type="file" id="f-files" accept="image/*" multiple hidden>
+      <input type="file" id="f-folder" webkitdirectory multiple hidden>
+    </div>
+    <div id="list"></div>
+  </aside>
+</main>
+
+<div id="drop">drop images, folders or URLs</div>
+<div id="toast"></div>
+
+<script>
+(function () {
+"use strict";
+
+const $  = s => document.querySelector(s);
+const $$ = s => Array.from(document.querySelectorAll(s));
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+
+const KEY = "images-to-montage.v1";
+const DEFAULTS = {
+  layout:"grid", native:true, cols:0, cellW:320, cellH:0, fit:"contain", rowH:240, width:1600,
+  lastRow:"left", align:"center", natural:false,
+  gap:8, pad:16, radius:0, bg:"#ffffff", transparent:false, cellFill:false, cellBg:"#eeeeee",
+  bw:0, bc:"#000000",
+  caption:"none", capSize:16, capPos:"bottom", stripExt:true,
+  scale:1, format:"image/png", quality:0.92, fname:"montage",
+  persist:true, theme:"dark", zoom:"fit"
+};
+const cfg = Object.assign({}, DEFAULTS);
+
+/* browser canvas limits: most engines allow about 16384 px per side; keep the area modest for stricter ones */
+const MAX_SIDE = 16384, MAX_AREA = 16384 * 16384;
+const IMG_RE = /\.(png|jpe?g|gif|webp|avif|bmp|svg|ico|tiff?|jfif|apng)$/i;
+
+let items = [];          // {id, name, url, own, img, src, w, h, rot, status, tainted, err}
+let seq = 0, sel = null;
+let lay = null;          // last layout
+let outScale = 1;        // effective scale after clamping
+
+const cv = $("#cv"), ctx = cv.getContext("2d");
+
+function toast(msg, bad) {
+  const t = $("#toast");
+  t.textContent = msg; t.classList.add("show"); t.classList.toggle("bad", !!bad);
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => t.classList.remove("show"), bad ? 3200 : 1500);
+}
+
+/* =======================================================================
+   persistence
+   ======================================================================= */
+function save() {
+  try {
+    if (cfg.persist) localStorage.setItem(KEY, JSON.stringify(cfg));
+    else localStorage.removeItem(KEY);
+  } catch (e) { /* storage disabled — non fatal */ }
+}
+function load() {
+  let raw = null;
+  try { raw = localStorage.getItem(KEY); } catch (e) { return; }
+  if (!raw) return;
+  try {
+    const s = JSON.parse(raw);
+    Object.keys(DEFAULTS).forEach(k => { if (k in s && typeof s[k] === typeof DEFAULTS[k]) cfg[k] = s[k]; });
+  } catch (e) { /* corrupt — ignore */ }
+}
+
+/* =======================================================================
+   loading
+   ======================================================================= */
+function baseName(s) {
+  try { s = decodeURIComponent(s); } catch (e) {}
+  return s.split(/[?#]/)[0].split(/[\\/]/).filter(Boolean).pop() || s;
+}
+
+/* turn whatever the user typed into something <img> can load */
+function toURL(raw) {
+  let s = raw.trim().replace(/^["']|["']$/g, "");
+  if (!s || s.startsWith("#")) return null;
+  if (/^(https?|data|blob|file):/i.test(s)) return s;
+  if (/^[A-Za-z]:[\\/]/.test(s)) return "file:///" + encodeURI(s.replace(/\\/g, "/"));
+  if (/^\\\\/.test(s)) return "file:" + encodeURI(s.replace(/\\/g, "/"));
+  if (s.startsWith("/")) return "file://" + encodeURI(s);
+  if (s.startsWith("~")) throw new Error("~ can't be resolved by a browser — use an absolute path");
+  return new URL(s, location.href).href;
+}
+
+/* a drawn image is "tainted" when the page may not read it back — then export throws */
+function isTainted(img) {
+  try {
+    const c = document.createElement("canvas"); c.width = c.height = 1;
+    const x = c.getContext("2d"); x.drawImage(img, 0, 0, 1, 1); x.getImageData(0, 0, 1, 1);
+    return false;
+  } catch (e) { return true; }
+}
+
+function loadImg(url, cors) {
+  return new Promise((res, rej) => {
+    const img = new Image();
+    if (cors) img.crossOrigin = "anonymous";
+    img.decoding = "async";
+    img.onload = () => res(img);
+    img.onerror = () => rej(new Error("failed to load"));
+    img.src = url;
+  });
+}
+
+function newItem(name, url, own) {
+  const it = { id: ++seq, name, url, own, img: null, src: null, w: 0, h: 0, rot: 0,
+               status: "loading", tainted: false, err: "" };
+  items.push(it);
+  return it;
+}
+
+async function resolve(it) {
+  try {
+    let img;
+    if (/^https?:/i.test(it.url)) {
+      try { img = await loadImg(it.url, true); }
+      catch (e) { img = await loadImg(it.url, false); }   // no CORS — preview only
+    } else {
+      img = await loadImg(it.url, false);
+    }
+    if (!img.naturalWidth || !img.naturalHeight) {
+      // SVG without intrinsic size — give it one
+      img.width = img.width || 512; img.height = img.height || 512;
+    }
+    it.img = img;
+    it.tainted = isTainted(img);
+    it.status = "ok";
+    bake(it);
+  } catch (e) {
+    it.status = "error"; it.err = e.message || "failed";
+  }
+  schedule();
+}
+
+function addFiles(files) {
+  const list = Array.from(files).filter(f => (f.type && f.type.startsWith("image/")) || IMG_RE.test(f.name));
+  list.sort((a, b) => natCmp(a.webkitRelativePath || a.name, b.webkitRelativePath || b.name));
+  if (!list.length) { if (files.length) toast("no images in that selection", true); return 0; }
+  list.forEach(f => resolve(newItem(f.name, URL.createObjectURL(f), true)));
+  schedule();
+  toast(`added ${list.length} image${list.length > 1 ? "s" : ""}`);
+  return list.length;
+}
+
+function addPaths(text) {
+  const lines = String(text).split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+  let n = 0, bad = [];
+  for (const line of lines) {
+    let url;
+    try { url = toURL(line); } catch (e) { bad.push(e.message); continue; }
+    if (!url) continue;
+    resolve(newItem(baseName(url), url, false)); n++;
+  }
+  schedule();
+  if (bad.length) toast(bad[0], true);
+  else if (n) toast(`added ${n} path${n > 1 ? "s" : ""}`);
+  return n;
+}
+
+/* folder drops: walk the entries tree */
+async function filesFromItems(dtItems) {
+  const entries = Array.from(dtItems).map(i => i.webkitGetAsEntry && i.webkitGetAsEntry()).filter(Boolean);
+  if (!entries.some(e => e.isDirectory)) return null;
+  const out = [];
+  const readAll = dir => new Promise(res => {
+    const r = dir.createReader(), acc = [];
+    const next = () => r.readEntries(b => { if (!b.length) res(acc); else { acc.push(...b); next(); } }, () => res(acc));
+    next();
+  });
+  const walk = async (e, path) => {
+    if (e.isFile) {
+      await new Promise(res => e.file(f => {
+        try { Object.defineProperty(f, "webkitRelativePath", { value: path + f.name }); } catch (x) {}
+        out.push(f); res();
+      }, res));
+    } else if (e.isDirectory) {
+      for (const c of await readAll(e)) await walk(c, path + e.name + "/");
+    }
+  };
+  for (const e of entries) await walk(e, "");
+  return out;
+}
+
+/* rotation is baked into an offscreen canvas so layout/draw only see an upright source */
+function bake(it) {
+  const iw = it.img.naturalWidth || it.img.width, ih = it.img.naturalHeight || it.img.height;
+  if (!it.rot) { it.src = it.img; it.w = iw; it.h = ih; return; }
+  const c = document.createElement("canvas");
+  const q = it.rot % 180 !== 0;
+  c.width = q ? ih : iw; c.height = q ? iw : ih;
+  const x = c.getContext("2d");
+  x.translate(c.width / 2, c.height / 2); x.rotate(it.rot * Math.PI / 180);
+  x.drawImage(it.img, -iw / 2, -ih / 2, iw, ih);
+  it.src = c; it.w = c.width; it.h = c.height;
+}
+
+function removeItem(id) {
+  const i = items.findIndex(t => t.id === id);
+  if (i < 0) return;
+  const [it] = items.splice(i, 1);
+  if (it.own) URL.revokeObjectURL(it.url);
+  if (sel === id) sel = items[Math.min(i, items.length - 1)] ? items[Math.min(i, items.length - 1)].id : null;
+  schedule();
+}
+function moveItem(from, to) {
+  if (from === to || from < 0 || to < 0 || from >= items.length || to >= items.length) return;
+  const [it] = items.splice(from, 1);
+  items.splice(to, 0, it);
+  schedule();
+}
+function rotateItem(id, d) {
+  const it = items.find(t => t.id === id);
+  if (!it || it.status !== "ok") return;
+  it.rot = ((it.rot + d) % 360 + 360) % 360;
+  bake(it); schedule();
+}
+
+const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
+function natCmp(a, b) { return collator.compare(a, b); }
+
+/* =======================================================================
+   layout — pure geometry in unscaled px
+   tile: {it, x,y,w,h (clip rect), sx,sy,sw,sh, dx,dy,dw,dh, cx,cy,cw,ch (cell)}
+   ======================================================================= */
+function whole(it, x, y, w, h) {
+  return { it, x, y, w, h, sx: 0, sy: 0, sw: it.w, sh: it.h, dx: x, dy: y, dw: w, dh: h, cx: x, cy: y, cw: w, ch: h };
+}
+
+function fitCell(it, cx, cy, cw, ch) {
+  const t = whole(it, cx, cy, cw, ch);
+  if (cfg.fit === "cover") {
+    const s = Math.max(cw / it.w, ch / it.h);
+    t.sw = cw / s; t.sh = ch / s; t.sx = (it.w - t.sw) / 2; t.sy = (it.h - t.sh) / 2;
+  } else if (cfg.fit === "contain") {
+    const s = Math.min(cw / it.w, ch / it.h);
+    t.dw = t.w = it.w * s; t.dh = t.h = it.h * s;
+    t.dx = t.x = cx + (cw - t.w) / 2; t.dy = t.y = cy + (ch - t.h) / 2;
+  }
+  return t;
+}
+
+function autoCols(n) { return cfg.cols > 0 ? Math.min(cfg.cols, n) : Math.ceil(Math.sqrt(n)); }
+
+function median(a) { const s = a.slice().sort((x, y) => x - y); const m = s.length >> 1; return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; }
+
+const LAYOUTS = {
+  grid(list) {
+    const n = list.length, cols = autoCols(n), rows = Math.ceil(n / cols);
+    const g = cfg.gap, p = cfg.pad, cw = E.cellW;
+    const ch = E.cellH > 0 ? E.cellH : Math.round(cw / median(list.map(t => t.w / t.h)));
+    const W = p * 2 + cols * cw + (cols - 1) * g, H = p * 2 + rows * ch + (rows - 1) * g;
+    const tiles = list.map((it, i) => {
+      const r = Math.floor(i / cols), c = i % cols;
+      let off = 0;
+      if (r === rows - 1 && cfg.lastRow === "center") {
+        const k = n - r * cols; off = (cols - k) * (cw + g) / 2;
+      }
+      return fitCell(it, p + off + c * (cw + g), p + r * (ch + g), cw, ch);
+    });
+    return { W, H, tiles };
+  },
+
+  justified(list) {
+    const g = cfg.gap, p = cfg.pad, W = Math.max(50, E.width), inner = Math.max(10, W - 2 * p);
+    const rows = []; let cur = [], sumA = 0;
+    for (const it of list) {
+      cur.push(it); sumA += it.w / it.h;
+      if (sumA * E.rowH + g * (cur.length - 1) >= inner) {
+        rows.push({ items: cur, h: (inner - g * (cur.length - 1)) / sumA, full: true });
+        cur = []; sumA = 0;
+      }
+    }
+    if (cur.length) {
+      let h = E.rowH;
+      const need = sumA * h + g * (cur.length - 1);
+      if (cfg.lastRow === "stretch" || need > inner) h = (inner - g * (cur.length - 1)) / sumA;
+      rows.push({ items: cur, h, full: cfg.lastRow === "stretch" });
+    }
+    const tiles = []; let y = p;
+    for (const row of rows) {
+      const rw = row.items.reduce((s, it) => s + it.w / it.h * row.h, 0) + g * (row.items.length - 1);
+      let x = p + (!row.full && cfg.lastRow === "center" ? (inner - rw) / 2 : 0);
+      for (const it of row.items) {
+        const w = it.w / it.h * row.h;
+        tiles.push(whole(it, x, y, w, row.h));
+        x += w + g;
+      }
+      y += row.h + g;
+    }
+    return { W, H: y - g + p, tiles };
+  },
+
+  masonry(list) {
+    const n = list.length, cols = autoCols(n), g = cfg.gap, p = cfg.pad, cw = E.cellW;
+    const hs = new Array(cols).fill(p);
+    const tiles = list.map(it => {
+      let c = 0; for (let i = 1; i < cols; i++) if (hs[i] < hs[c] - 0.5) c = i;
+      const h = cw * it.h / it.w;
+      const t = whole(it, p + c * (cw + g), hs[c], cw, h);
+      hs[c] += h + g;
+      return t;
+    });
+    return { W: p * 2 + cols * cw + (cols - 1) * g, H: Math.max(...hs) - g + p, tiles };
+  },
+
+  row(list) {
+    const g = cfg.gap, p = cfg.pad;
+    const sz = list.map(it => cfg.natural ? [it.w, it.h] : [E.rowH * it.w / it.h, E.rowH]);
+    const H0 = Math.max(...sz.map(s => s[1]));
+    const k = { start: 0, center: .5, end: 1 }[cfg.align];
+    let x = p;
+    const tiles = list.map((it, i) => {
+      const [w, h] = sz[i];
+      const t = whole(it, x, p + (H0 - h) * k, w, h); x += w + g; return t;
+    });
+    return { W: x - g + p, H: H0 + 2 * p, tiles };
+  },
+
+  column(list) {
+    const g = cfg.gap, p = cfg.pad;
+    const sz = list.map(it => cfg.natural ? [it.w, it.h] : [E.cellW, E.cellW * it.h / it.w]);
+    const W0 = Math.max(...sz.map(s => s[0]));
+    const k = { start: 0, center: .5, end: 1 }[cfg.align];
+    let y = p;
+    const tiles = list.map((it, i) => {
+      const [w, h] = sz[i];
+      const t = whole(it, p + (W0 - w) * k, y, w, h); y += h + g; return t;
+    });
+    return { W: W0 + 2 * p, H: y - g + p, tiles };
+  }
+};
+
+/* "size from images": derive cell/row sizes from the sources so nothing is downscaled
+   (a fixed 320px cell turns a 1356px screenshot into unreadable mush) */
+let E = { cellW: DEFAULTS.cellW, cellH: DEFAULTS.cellH, rowH: DEFAULTS.rowH, width: DEFAULTS.width };
+function effectiveSizes(list) {
+  if (!cfg.native) return { cellW: cfg.cellW, cellH: cfg.cellH, rowH: cfg.rowH, width: cfg.width };
+  const ws = list.map(t => t.w), hs = list.map(t => t.h);
+  const maxW = Math.max(...ws), maxH = Math.max(...hs), medH = Math.round(median(hs));
+  const perRow = cfg.cols > 0 ? cfg.cols : Math.ceil(Math.sqrt(list.length));
+  const medRowW = median(list.map(t => t.w * medH / t.h));
+  return {
+    cellW: maxW,
+    cellH: maxH,
+    rowH: cfg.layout === "row" ? maxH : medH,
+    width: Math.round(perRow * medRowW + (perRow - 1) * cfg.gap + 2 * cfg.pad)
+  };
+}
+
+function computeLayout() {
+  const list = items.filter(t => t.status === "ok");
+  if (!list.length) return null;
+  E = effectiveSizes(list);
+  const L = (LAYOUTS[cfg.layout] || LAYOUTS.grid)(list);
+  L.W = Math.max(1, L.W); L.H = Math.max(1, L.H);
+  return L;
+}
+
+/* =======================================================================
+   drawing
+   ======================================================================= */
+function rr(c, x, y, w, h, r) {
+  r = Math.max(0, Math.min(r, w / 2, h / 2));
+  c.beginPath();
+  if (c.roundRect) c.roundRect(x, y, w, h, r);
+  else {
+    c.moveTo(x + r, y); c.arcTo(x + w, y, x + w, y + h, r); c.arcTo(x + w, y + h, x, y + h, r);
+    c.arcTo(x, y + h, x, y, r); c.arcTo(x, y, x + w, y, r); c.closePath();
+  }
+}
+
+function captionText(it, i) {
+  let nm = it.name;
+  if (cfg.stripExt) nm = nm.replace(/\.[^.]+$/, "");
+  switch (cfg.caption) {
+    case "index": return String(i + 1);
+    case "name":  return nm;
+    case "both":  return `${i + 1}. ${nm}`;
+  }
+  return "";
+}
+
+function ellipsize(c, s, max) {
+  if (c.measureText(s).width <= max) return s;
+  let lo = 0, hi = s.length;
+  while (lo < hi) { const m = (lo + hi + 1) >> 1; if (c.measureText(s.slice(0, m) + "…").width <= max) lo = m; else hi = m - 1; }
+  return lo ? s.slice(0, lo) + "…" : "";
+}
+
+function drawCaption(c, t, i) {
+  const txt = captionText(t.it, i);
+  if (!txt) return;
+  const fs = cfg.capSize, padX = fs * .5;
+  c.font = `500 ${fs}px system-ui,sans-serif`;
+  c.textBaseline = "middle";
+  if (cfg.capPos === "badge") {
+    const s = ellipsize(c, txt, t.w - fs * 1.6);
+    if (!s) return;
+    const bw = c.measureText(s).width + padX * 2, bh = fs * 1.6, m = Math.max(4, fs * .4);
+    rr(c, t.x + m, t.y + m, bw, bh, bh / 2);
+    c.fillStyle = "rgba(0,0,0,.62)"; c.fill();
+    c.fillStyle = "#fff"; c.fillText(s, t.x + m + padX, t.y + m + bh / 2);
+    return;
+  }
+  const bh = fs * 1.8, by = cfg.capPos === "top" ? t.y : t.y + t.h - bh;
+  c.fillStyle = "rgba(0,0,0,.55)"; c.fillRect(t.x, by, t.w, bh);
+  c.fillStyle = "#fff";
+  c.fillText(ellipsize(c, txt, t.w - padX * 2), t.x + padX, by + bh / 2);
+}
+
+function draw() {
+  lay = computeLayout();
+  const has = !!lay;
+  $("#holder").hidden = !has;
+  $("#empty").hidden = has;
+  $("#chip-clamp").hidden = true;
+  if (!has) { cv.width = cv.height = 0; outScale = 1; renderMeta(); return; }
+
+  let s = cfg.scale;
+  const lim = Math.min(MAX_SIDE / lay.W, MAX_SIDE / lay.H, Math.sqrt(MAX_AREA / (lay.W * lay.H)));
+  if (s > lim) {
+    s = lim;
+    $("#chip-clamp").hidden = false;
+    $("#chip-clamp b").textContent = "×" + s.toFixed(2);
+  }
+  outScale = s;
+  cv.width = Math.max(1, Math.round(lay.W * s));
+  cv.height = Math.max(1, Math.round(lay.H * s));
+
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.clearRect(0, 0, cv.width, cv.height);
+  const opaque = !cfg.transparent || cfg.format === "image/jpeg";
+  if (opaque) { ctx.fillStyle = cfg.bg; ctx.fillRect(0, 0, cv.width, cv.height); }
+  ctx.setTransform(s, 0, 0, s, 0, 0);
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
+
+  lay.tiles.forEach((t, i) => {
+    if (cfg.cellFill && cfg.layout === "grid") {
+      ctx.fillStyle = cfg.cellBg; rr(ctx, t.cx, t.cy, t.cw, t.ch, cfg.radius); ctx.fill();
+    }
+    ctx.save();
+    rr(ctx, t.x, t.y, t.w, t.h, cfg.radius);
+    ctx.clip();
+    ctx.drawImage(t.it.src, t.sx, t.sy, t.sw, t.sh, t.dx, t.dy, t.dw, t.dh);
+    if (cfg.caption !== "none") drawCaption(ctx, t, i);
+    ctx.restore();
+    if (cfg.bw > 0) {
+      const b = cfg.bw;
+      rr(ctx, t.x + b / 2, t.y + b / 2, t.w - b, t.h - b, Math.max(0, cfg.radius - b / 2));
+      ctx.lineWidth = b; ctx.strokeStyle = cfg.bc; ctx.stroke();
+    }
+  });
+
+  if (cfg.native) $$("[data-size]").forEach(el => { el.value = Math.round(E[el.dataset.cfg]); });
+  applyZoom();
+  renderMeta();
+}
+
+/* =======================================================================
+   render ui
+   ======================================================================= */
+let raf = 0;
+function schedule() {
+  if (raf) return;
+  raf = requestAnimationFrame(() => { raf = 0; draw(); renderList(); });
+}
+
+function viewScale() {                       // css px per unscaled layout px
+  return lay ? cv.getBoundingClientRect().width / lay.W : 1;
+}
+
+function applyZoom() {
+  $("#btn-zoom").textContent = cfg.zoom === "fit" ? "fit" : "1:1";
+  if (!lay) return;
+  const vp = $("#viewport");
+  const aw = vp.clientWidth - 28, ah = vp.clientHeight - 28;
+  const dpr = window.devicePixelRatio || 1;
+  let w = cv.width / dpr, h = cv.height / dpr;
+  if (cfg.zoom === "fit") { const k = Math.min(1, aw / w, ah / h); w *= k; h *= k; }
+  cv.style.width = Math.max(1, w) + "px";
+  cv.style.height = Math.max(1, h) + "px";
+  placeBox($("#selbox"), lay.tiles.find(t => t.it.id === sel));
+}
+
+function placeBox(el, t) {
+  if (!t) { el.style.display = "none"; return; }
+  const k = viewScale();
+  Object.assign(el.style, { display: "block", left: t.cx * k + "px", top: t.cy * k + "px",
+    width: t.cw * k + "px", height: t.ch * k + "px" });
+}
+
+function renderMeta() {
+  const ok = items.filter(t => t.status === "ok");
+  const tainted = ok.some(t => t.tainted);
+  $("#chip-n b").textContent = items.length === ok.length ? ok.length : `${ok.length}/${items.length}`;
+  $("#chip-size b").textContent = lay ? `${cv.width}×${cv.height}` : "—";
+  $("#chip-taint").hidden = !tainted;
+  $("#btn-dl").disabled = $("#btn-copy").disabled = !lay;
+  $("#m-size").textContent = lay ? `layout ${Math.round(lay.W)}×${Math.round(lay.H)} · scale ${outScale.toFixed(2)}` : "no images";
+  $("#m-view").textContent = lay ? `view ${Math.round(viewScale() * 100)}%` : "";
+  const it = items.find(t => t.id === sel);
+  $("#m-sel").textContent = it ? `#${items.indexOf(it) + 1} ${it.name}${it.w ? ` (${it.w}×${it.h})` : ""}` : "";
+}
+
+function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
+
+function renderList() {
+  const box = $("#list");
+  if (!items.length) { box.innerHTML = `<div class="list-empty">no images yet</div>`; return; }
+  box.innerHTML = items.map((it, i) => {
+    let dm;
+    if (it.status === "loading") dm = "loading…";
+    else if (it.status === "error") dm = `<span class="e">${esc(it.err)}</span>`;
+    else dm = `${it.w}×${it.h}${it.rot ? ` · ${it.rot}°` : ""}${it.tainted ? ` · <span class="w" title="preview only — the browser blocks export of this source">no export</span>` : ""}`;
+    return `<div class="it${it.id === sel ? " sel" : ""}${it.status === "error" ? " bad" : ""}" draggable="true" data-id="${it.id}" title="${esc(it.url.startsWith("blob:") ? it.name : it.url)}">
+      <span class="n">${i + 1}</span>
+      <span class="th">${it.status === "ok" ? `<img src="${esc(it.url)}" alt="" style="transform:rotate(${it.rot}deg)" draggable="false">` : ""}</span>
+      <span class="meta"><div class="nm">${esc(it.name)}</div><div class="dm">${dm}</div></span>
+      <span class="acts">
+        <button data-act="rot" title="Rotate 90° — r">↻</button>
+        <button data-act="del" title="Remove — del">×</button>
+      </span>
+    </div>`;
+  }).join("");
+  const s = box.querySelector(".it.sel");
+  if (s && renderList.reveal) { s.scrollIntoView({ block: "nearest" }); }
+  renderList.reveal = false;
+}
+
+function select(id, reveal) {
+  sel = id; renderList.reveal = !!reveal;
+  schedule();
+}
+
+/* =======================================================================
+   config controls
+   ======================================================================= */
+function syncControls() {
+  $$("[data-cfg]").forEach(el => {
+    const v = cfg[el.dataset.cfg];
+    if (el.type === "checkbox") el.checked = !!v; else el.value = v;
+  });
+  $("#v-gap").textContent = cfg.gap;
+  $("#v-pad").textContent = cfg.pad;
+  $("#v-radius").textContent = cfg.radius;
+  $("#v-bw").textContent = cfg.bw;
+  $("#v-scale").textContent = "×" + (+cfg.scale).toFixed(2);
+  $("#v-quality").textContent = Math.round(cfg.quality * 100);
+  $$("[data-for]").forEach(el => {
+    const on = el.dataset.for.split(" ").includes(cfg.layout);
+    if (el.tagName === "OPTION") el.disabled = !on; else el.hidden = !on;
+  });
+  if (cfg.layout !== "justified" && cfg.lastRow === "stretch") { cfg.lastRow = "left"; $("#c-lastRow").value = "left"; }
+  $$("[data-cap]").forEach(el => el.hidden = cfg.caption === "none");
+  $$("[data-lossy]").forEach(el => el.hidden = cfg.format === "image/png");
+  $("#c-bg").disabled = cfg.transparent && cfg.format !== "image/jpeg";
+  $$("[data-size]").forEach(el => {
+    el.disabled = cfg.native;
+    if (cfg.native) el.value = Math.round(E[el.dataset.cfg]);
+  });
+  document.documentElement.dataset.theme = cfg.theme;
+}
+
+function readControl(el) {
+  const k = el.dataset.cfg, d = DEFAULTS[k];
+  if (el.type === "checkbox") cfg[k] = el.checked;
+  else if (typeof d === "number") {
+    const v = parseFloat(el.value);
+    if (!isFinite(v)) return;
+    const lo = el.min !== "" ? +el.min : -Infinity, hi = el.max !== "" ? +el.max : Infinity;
+    cfg[k] = clamp(v, lo, hi);
+  } else cfg[k] = el.value;
+  // switching to manual: start from the derived sizes rather than jumping back to 320px
+  if (k === "native" && !cfg.native && lay) ["cellW", "cellH", "rowH", "width"].forEach(n => { cfg[n] = Math.round(E[n]); });
+  syncControls(); save(); schedule();
+}
+$$("[data-cfg]").forEach(el => {
+  el.addEventListener("input", () => readControl(el));
+  el.addEventListener("change", () => { readControl(el); if (el.type === "number") el.value = cfg[el.dataset.cfg]; });
+});
+
+$("#btn-reset").addEventListener("click", () => {
+  const theme = cfg.theme;
+  Object.assign(cfg, DEFAULTS, { theme });
+  syncControls(); save(); schedule(); toast("config reset");
+});
+$("#btn-theme").addEventListener("click", () => {
+  cfg.theme = cfg.theme === "dark" ? "light" : "dark";
+  syncControls(); save();
+});
+$("#btn-zoom").addEventListener("click", toggleZoom);
+function toggleZoom() { cfg.zoom = cfg.zoom === "fit" ? "1:1" : "fit"; save(); applyZoom(); renderMeta(); }
+
+/* =======================================================================
+   export
+   ======================================================================= */
+function toBlob(type, q) {
+  return new Promise((res, rej) => {
+    try { cv.toBlob(b => b ? res(b) : rej(new Error("encoding failed")), type, q); }
+    catch (e) { rej(e); }
+  });
+}
+function exportErr(e) {
+  if (e && e.name === "SecurityError")
+    toast("export blocked: some images came from paths/URLs the browser won't let a page read. Drop those files instead.", true);
+  else toast("export failed: " + (e && e.message || e), true);
+}
+async function download() {
+  if (!lay) return;
+  draw();
+  try {
+    const b = await toBlob(cfg.format, cfg.quality);
+    const ext = { "image/png": "png", "image/jpeg": "jpg", "image/webp": "webp" }[cfg.format];
+    if (b.type !== cfg.format) toast(`${ext} not supported here — saved as ${b.type}`, true);
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(b);
+    a.download = (cfg.fname.trim() || "montage").replace(/[\\/:*?"<>|]+/g, "_") + "." + (b.type.split("/")[1] || ext).replace("jpeg", "jpg");
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+    if (b.type === cfg.format) toast(`saved ${cv.width}×${cv.height} · ${(b.size / 1024).toFixed(0)} KB`);
+  } catch (e) { exportErr(e); }
+}
+async function copyImage() {
+  if (!lay) return;
+  if (!navigator.clipboard || !window.ClipboardItem) { toast("clipboard images aren't supported here", true); return; }
+  try {
+    // pass the promise so stricter engines keep the user gesture
+    await navigator.clipboard.write([new ClipboardItem({ "image/png": toBlob("image/png") })]);
+    toast("copied PNG to clipboard");
+  } catch (e) { exportErr(e); }
+}
+$("#btn-dl").addEventListener("click", download);
+$("#btn-copy").addEventListener("click", copyImage);
+
+/* =======================================================================
+   adding: buttons, drop, paste
+   ======================================================================= */
+$("#btn-open").addEventListener("click", () => $("#f-files").click());
+$("#btn-folder").addEventListener("click", () => $("#f-folder").click());
+$("#empty").addEventListener("click", () => $("#f-files").click());
+["#f-files", "#f-folder"].forEach(s => $(s).addEventListener("change", e => {
+  addFiles(e.target.files); e.target.value = "";
+}));
+function submitPaths() {
+  const ta = $("#paths");
+  if (addPaths(ta.value)) ta.value = "";
+}
+$("#btn-paths").addEventListener("click", submitPaths);
+$("#paths").addEventListener("keydown", e => {
+  if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); submitPaths(); }
+});
+
+let internalDrag = false;                 // list-row / tile reorder in progress
+let dragDepth = 0;
+const isExternal = e => !internalDrag && e.dataTransfer &&
+  Array.from(e.dataTransfer.types || []).some(t => t === "Files" || t === "text/uri-list" || t === "text/plain");
+
+window.addEventListener("dragenter", e => {
+  if (!isExternal(e)) return;
+  e.preventDefault(); dragDepth++; document.body.classList.add("dragover");
+});
+window.addEventListener("dragover", e => {
+  if (!isExternal(e)) return;
+  e.preventDefault(); e.dataTransfer.dropEffect = "copy";
+});
+window.addEventListener("dragleave", e => {
+  if (!isExternal(e)) return;
+  if (--dragDepth <= 0) { dragDepth = 0; document.body.classList.remove("dragover"); }
+});
+window.addEventListener("drop", async e => {
+  dragDepth = 0; document.body.classList.remove("dragover");
+  if (internalDrag || !e.dataTransfer) return;
+  e.preventDefault();
+  const dt = e.dataTransfer;
+  if (dt.files && dt.files.length) {
+    const deep = dt.items ? await filesFromItems(dt.items) : null;
+    addFiles(deep || dt.files);
+    return;
+  }
+  // image dragged from another tab / a path list dragged as text
+  const uris = dt.getData("text/uri-list") || dt.getData("text/plain");
+  if (uris) addPaths(uris);
+});
+
+document.addEventListener("paste", e => {
+  const inField = /^(INPUT|TEXTAREA)$/.test(e.target.tagName);
+  const cd = e.clipboardData; if (!cd) return;
+  const files = Array.from(cd.items || []).filter(i => i.kind === "file").map(i => i.getAsFile()).filter(Boolean);
+  if (files.length) {
+    e.preventDefault();
+    // screenshots arrive unnamed as "image.png" — give them distinct names
+    const stamp = new Date().toTimeString().slice(0, 8).replace(/:/g, "");
+    addFiles(files.map((f, i) => f.name && f.name !== "image.png" ? f
+      : new File([f], `pasted-${stamp}${files.length > 1 ? "-" + (i + 1) : ""}.${(f.type.split("/")[1] || "png")}`, { type: f.type })));
+    return;
+  }
+  if (inField) return;
+  const txt = cd.getData("text/plain");
+  if (txt) { e.preventDefault(); addPaths(txt); }
+});
+
+/* =======================================================================
+   list: select, actions, drag reorder
+   ======================================================================= */
+const list = $("#list");
+list.addEventListener("click", e => {
+  const row = e.target.closest(".it"); if (!row) return;
+  const id = +row.dataset.id;
+  const act = e.target.closest("[data-act]");
+  if (act && act.dataset.act === "del") { removeItem(id); return; }
+  if (act && act.dataset.act === "rot") { rotateItem(id, e.shiftKey ? -90 : 90); select(id); return; }
+  select(id);
+});
+
+let dragRowId = null;
+list.addEventListener("dragstart", e => {
+  const row = e.target.closest(".it"); if (!row) return;
+  internalDrag = true; dragRowId = +row.dataset.id;
+  e.dataTransfer.effectAllowed = "move";
+  try { e.dataTransfer.setData("application/x-montage-item", String(dragRowId)); } catch (x) {}
+});
+function clearOver() { $$(".it.over-top,.it.over-bot").forEach(r => r.classList.remove("over-top", "over-bot")); }
+list.addEventListener("dragover", e => {
+  if (dragRowId == null) return;
+  e.preventDefault();
+  const row = e.target.closest(".it"); clearOver(); if (!row) return;
+  const r = row.getBoundingClientRect();
+  row.classList.add(e.clientY < r.top + r.height / 2 ? "over-top" : "over-bot");
+});
+list.addEventListener("drop", e => {
+  if (dragRowId == null) return;
+  e.preventDefault();
+  const row = e.target.closest(".it");
+  const from = items.findIndex(t => t.id === dragRowId);
+  let to = items.length - 1;
+  if (row) {
+    const r = row.getBoundingClientRect();
+    to = items.findIndex(t => t.id === +row.dataset.id) + (e.clientY < r.top + r.height / 2 ? 0 : 1);
+    if (from < to) to--;
+  }
+  moveItem(from, to);
+});
+list.addEventListener("dragend", () => { internalDrag = false; dragRowId = null; clearOver(); });
+
+/* =======================================================================
+   canvas: click selects, drag a tile onto another to move it there
+   ======================================================================= */
+function hit(ev) {
+  if (!lay) return null;
+  const r = cv.getBoundingClientRect(), k = r.width / lay.W;
+  const x = (ev.clientX - r.left) / k, y = (ev.clientY - r.top) / k;
+  return lay.tiles.find(t => x >= t.cx && x <= t.cx + t.cw && y >= t.cy && y <= t.cy + t.ch) || null;
+}
+let press = null;
+cv.addEventListener("pointerdown", e => {
+  if (e.button !== 0) return;
+  const t = hit(e);
+  if (!t) { select(null); return; }
+  press = { id: t.it.id, x: e.clientX, y: e.clientY, moved: false };
+  cv.setPointerCapture(e.pointerId);
+  select(t.it.id, true);
+});
+cv.addEventListener("pointermove", e => {
+  if (!press) return;
+  if (!press.moved && Math.hypot(e.clientX - press.x, e.clientY - press.y) < 5) return;
+  press.moved = true; cv.classList.add("dragging");
+  const t = hit(e);
+  placeBox($("#dropbox"), t && t.it.id !== press.id ? t : null);
+});
+function endPress(e, cancel) {
+  if (!press) return;
+  const p = press; press = null;
+  cv.classList.remove("dragging"); $("#dropbox").style.display = "none";
+  if (cancel || !p.moved) return;
+  const t = hit(e);
+  if (t && t.it.id !== p.id) {
+    moveItem(items.findIndex(i => i.id === p.id), items.findIndex(i => i.id === t.it.id));
+  }
+}
+cv.addEventListener("pointerup", e => endPress(e));
+cv.addEventListener("pointercancel", e => endPress(e, true));
+cv.addEventListener("dblclick", e => { const t = hit(e); if (t) rotateItem(t.it.id, 90); });
+
+/* =======================================================================
+   list buttons + keyboard
+   ======================================================================= */
+$("#btn-sort").addEventListener("click", () => { items.sort((a, b) => natCmp(a.name, b.name)); schedule(); });
+$("#btn-rev").addEventListener("click", () => { items.reverse(); schedule(); });
+$("#btn-shuf").addEventListener("click", () => {
+  for (let i = items.length - 1; i > 0; i--) { const j = Math.random() * (i + 1) | 0; [items[i], items[j]] = [items[j], items[i]]; }
+  schedule();
+});
+$("#btn-clear").addEventListener("click", () => {
+  if (!items.length) return;
+  if (items.length > 3 && !confirm(`Remove all ${items.length} images?`)) return;
+  items.forEach(t => t.own && URL.revokeObjectURL(t.url));
+  items = []; sel = null; schedule();
+});
+
+document.addEventListener("keydown", e => {
+  const inField = /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName);
+  const mod = e.ctrlKey || e.metaKey;
+  if (mod && e.key.toLowerCase() === "s") { e.preventDefault(); download(); return; }
+  if (mod && e.shiftKey && e.key.toLowerCase() === "c") { e.preventDefault(); copyImage(); return; }
+  if (inField || mod) return;
+  const i = items.findIndex(t => t.id === sel);
+  switch (e.key) {
+    case "o": $("#f-files").click(); break;
+    case "t": $("#btn-theme").click(); break;
+    case "z": toggleZoom(); break;
+    case "r": case "R": if (sel) rotateItem(sel, e.shiftKey ? -90 : 90); break;
+    case "Delete": case "Backspace": if (sel) { e.preventDefault(); removeItem(sel); } break;
+    case "Escape": select(null); break;
+    case "ArrowUp": case "ArrowLeft": case "ArrowDown": case "ArrowRight": {
+      if (!items.length) break;
+      e.preventDefault();
+      const d = e.key === "ArrowUp" || e.key === "ArrowLeft" ? -1 : 1;
+      if (e.altKey && i >= 0) { moveItem(i, clamp(i + d, 0, items.length - 1)); renderList.reveal = true; }
+      else select(items[clamp(i < 0 ? 0 : i + d, 0, items.length - 1)].id, true);
+      break;
+    }
+  }
+});
+
+window.addEventListener("resize", () => { applyZoom(); renderMeta(); });
+
+/* =======================================================================
+   boot — ?src=a.png|b.png (or repeated ?src=) seeds images from paths/URLs
+   ======================================================================= */
+load();
+syncControls();
+schedule();
+try {
+  const srcs = new URL(location.href).searchParams.getAll("src").flatMap(s => s.split("|"));
+  if (srcs.length) addPaths(srcs.join("\n"));
+} catch (e) {}
+
+})();
+</script>
+</body>
+</html>
